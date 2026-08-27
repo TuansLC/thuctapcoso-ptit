@@ -7,7 +7,7 @@ inclusion: always
 Đặc tả chốt của đồ án nằm ở file dưới đây. Đọc và tuân thủ nó trong mọi tác vụ
 liên quan tới project này, đặc biệt là mục 14 về ranh giới phạm vi.
 
-#[[file:../../DOAN.md]]
+#[[file:DOAN.md]]
 
 ## Nhắc nhanh
 
