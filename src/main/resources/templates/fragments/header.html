@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="vi">
+<body>
+
+<nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" th:href="@{/}">Đăng ký học phần</a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#mainNav" aria-controls="mainNav"
+                aria-expanded="false" aria-label="Mở menu điều hướng">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav me-auto">
+                <!--/* Bốn chức năng admin, đúng theo DOAN.md mục 5. */-->
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link" th:href="@{/admin/courses}">Môn học</a>
+                </li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link" th:href="@{/admin/semesters}">Học kỳ</a>
+                </li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link" th:href="@{/admin/sections}">Lớp học phần</a>
+                </li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link" th:href="@{/admin/grades}">Nhập điểm</a>
+                </li>
+
+                <!--/* Hai chức năng sinh viên. */-->
+                <li class="nav-item" sec:authorize="hasRole('STUDENT')">
+                    <a class="nav-link" th:href="@{/student/sections}">Lớp đang mở</a>
+                </li>
+                <li class="nav-item" sec:authorize="hasRole('STUDENT')">
+                    <a class="nav-link" th:href="@{/student/my-courses}">Học phần của tôi</a>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav">
+                <li class="nav-item" sec:authorize="isAnonymous()">
+                    <a class="nav-link" th:href="@{/login}">Đăng nhập</a>
+                </li>
+                <li class="nav-item" sec:authorize="isAnonymous()">
+                    <a class="nav-link" th:href="@{/register}">Đăng ký tài khoản</a>
+                </li>
+
+                <li class="nav-item d-flex align-items-center" sec:authorize="isAuthenticated()">
+                    <span class="navbar-text text-white-50 me-3">
+                        <span sec:authentication="principal.fullName">Người dùng</span>
+                        <span class="badge text-bg-light ms-1"
+                              sec:authentication="principal.role">VAI</span>
+                    </span>
+                </li>
+                <li class="nav-item" sec:authorize="isAuthenticated()">
+                    <!--/* Đăng xuất phải là POST: nếu để GET thì một thẻ img hay link
+                           từ trang ngoài có thể đăng xuất người dùng (CSRF).
+                           Thymeleaf tự chèn hidden input _csrf vào form có th:action. */-->
+                    <form th:action="@{/logout}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-outline-light btn-sm">Đăng xuất</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+</body>
+</html>

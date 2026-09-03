@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi"
+      th:replace="~{layout :: page('Đăng ký tài khoản', ~{::content})}">
+<body>
+
+<!--/*
+  Màn hình NHẬP sinh ra dữ liệu "tài khoản đăng nhập" trong bảng truy vết
+  DOAN.md mục 6. Bước 1 của kịch bản demo mục 9 chạy trên trang này.
+*/-->
+<div th:fragment="content" class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h4 mb-4">Đăng ký tài khoản sinh viên</h1>
+
+                <form th:action="@{/register}" th:object="${form}" method="post" novalidate>
+
+                    <!--/* Lỗi cấp toàn form: trùng tên đăng nhập, trùng mã sinh viên.
+                           Khối này PHẢI nằm bên trong thẻ form có th:object. Đặt ở ngoài,
+                           Thymeleaf không có ngữ cảnh binding và ném lỗi
+                           "Could not bind form errors using expression global". */-->
+                    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger" role="alert">
+                        <p class="mb-0" th:each="err : ${#fields.globalErrors()}" th:text="${err}">Lỗi</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="fullName" class="form-label">Họ và tên</label>
+                        <input type="text" id="fullName" th:field="*{fullName}"
+                               class="form-control"
+                               th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'"
+                               autocomplete="name">
+                        <div class="invalid-feedback" th:errors="*{fullName}">Lỗi</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Mã sinh viên</label>
+                        <input type="text" id="code" th:field="*{code}"
+                               class="form-control"
+                               th:classappend="${#fields.hasErrors('code')} ? 'is-invalid'">
+                        <div class="invalid-feedback" th:errors="*{code}">Lỗi</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            Email <span class="text-body-secondary fw-normal">(không bắt buộc)</span>
+                        </label>
+                        <input type="email" id="email" th:field="*{email}"
+                               class="form-control"
+                               th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'"
+                               autocomplete="email">
+                        <div class="invalid-feedback" th:errors="*{email}">Lỗi</div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Tên đăng nhập</label>
+                        <input type="text" id="username" th:field="*{username}"
+                               class="form-control"
+                               th:classappend="${#fields.hasErrors('username')} ? 'is-invalid'"
+                               autocomplete="username">
+                        <div class="invalid-feedback" th:errors="*{username}">Lỗi</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mật khẩu</label>
+                        <input type="password" id="password" th:field="*{password}"
+                               class="form-control"
+                               th:classappend="${#fields.hasErrors('password')} ? 'is-invalid'"
+                               autocomplete="new-password">
+                        <div class="invalid-feedback" th:errors="*{password}">Lỗi</div>
+                        <div class="form-text">Từ 6 đến 72 ký tự.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="confirmPassword" class="form-label">Nhập lại mật khẩu</label>
+                        <input type="password" id="confirmPassword" th:field="*{confirmPassword}"
+                               class="form-control"
+                               th:classappend="${#fields.hasErrors('confirmPassword')} ? 'is-invalid'"
+                               autocomplete="new-password">
+                        <div class="invalid-feedback" th:errors="*{confirmPassword}">Lỗi</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Tạo tài khoản</button>
+                </form>
+
+                <p class="mt-3 mb-0 text-body-secondary small">
+                    Đã có tài khoản? <a th:href="@{/login}">Đăng nhập</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

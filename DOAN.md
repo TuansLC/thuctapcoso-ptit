@@ -147,6 +147,13 @@ Ghi chú thiết kế:
 - Điểm là cột `score` trên `registrations`, không có bảng `grades`.
 - Điểm chữ và GPA **không lưu**, tính lúc hiển thị từ `score` và `credits`.
 - `registered_count` là counter dư thừa có chủ đích (xem mục 7.6).
+- `users.code` là `unique` nhưng cho phép null, vì tài khoản ADMIN không có mã sinh viên.
+  MySQL cho phép nhiều dòng null trong một unique index nên điều này hợp lệ.
+- **Không dùng `ON DELETE CASCADE`** ở bất kỳ khoá ngoại nào. Hệ quả: xoá lớp học phần
+  đang có sinh viên sẽ nổ lỗi khoá ngoại, nên `ClassSectionService` phải xoá
+  `registrations` của lớp trước rồi mới xoá lớp, trong cùng một transaction. Chọn cách này
+  thay vì cascade để việc xoá dữ liệu sinh viên luôn là hành động tường minh trong code,
+  đọc code là thấy, không bị DB âm thầm làm hộ.
 
 ---
 
@@ -222,15 +229,86 @@ public void register(Long studentId, Long sectionId) {
 Optional<ClassSection> findByIdForUpdate(@Param("id") Long id);
 ```
 
+**Rút môn cũng phải lock.** `drop()` giảm `registered_count`, tức cũng là đọc-rồi-ghi,
+nên cũng bị lost update. Bỏ lock ở đây thì counter trôi lệch dần xuống dưới số thực,
+và `chk_capacity` không bắt được vì nó chỉ chặn chiều tăng.
+
+```java
+@Transactional
+public void drop(Long studentId, Long sectionId) {
+    ClassSection sec = sectionRepo.findByIdForUpdate(sectionId)   // lock y như register()
+            .orElseThrow(() -> new NotFoundException("Lớp không tồn tại"));
+
+    Registration reg = registrationRepo
+            .findByStudentIdAndSectionId(studentId, sectionId)
+            .orElseThrow(() -> new NotFoundException("Bạn chưa đăng ký lớp này"));
+
+    checkRegistrationOpen(sec.getSemester());        // cổng đăng ký còn mở
+    if (reg.getScore() != null)
+        throw new CannotDropException("Lớp đã có điểm, không rút được");
+
+    sec.setRegisteredCount(sec.getRegisteredCount() - 1);
+    registrationRepo.delete(reg);
+}
+```
+
 ### 7.2 Quy tắc nghiệp vụ
 
-- Trùng thời khóa biểu: cùng `day_of_week` **và** khoảng tiết giao nhau.
-  Điều kiện giao của hai đoạn: `startA < endB && startB < endA`.
 - Môn tiên quyết đạt = tồn tại `registrations` của sinh viên với môn đó và `score >= 4.0`.
 - Giới hạn tín chỉ: tổng `credits` các môn đã đăng ký trong kỳ + môn mới `<= semesters.max_credits`.
 - Không cho rút môn khi `score` khác null, hoặc khi cổng đăng ký đã đóng.
-- Thang điểm chữ: A ≥ 8.5, B+ ≥ 8.0, B ≥ 7.0, C+ ≥ 6.5, C ≥ 5.5, D+ ≥ 5.0, D ≥ 4.0, dưới 4.0 là F.
-- GPA thang 4 tính theo trung bình có trọng số tín chỉ.
+- Admin **không được hạ `capacity` xuống dưới `registered_count` hiện tại**. Chặn ở
+  `ClassSectionService` với thông báo rõ ràng, vì nếu để lọt xuống DB thì vi phạm
+  `chk_capacity` và người dùng nhận lỗi SQL thô.
+- Admin xoá lớp học phần: xoá `registrations` của lớp đó trước rồi mới xoá lớp, làm trong
+  cùng một transaction ở service (xem ghi chú mục 4 về việc không dùng `ON DELETE CASCADE`).
+
+**Trùng thời khóa biểu**
+
+Hai lớp trùng khi cùng `day_of_week` **và** khoảng tiết giao nhau. Điều kiện giao của
+hai đoạn là `startA < endB && startB < endA`, trong đó:
+
+```
+end = start_period + period_count        (biên phải MỞ)
+```
+
+Định nghĩa `end` phải ghi rõ vì đây là chỗ dễ sai off-by-one nhất cả đồ án. Nếu ai code
+`end = start_period + period_count - 1` thì hai lớp liền kề bị báo trùng oan, mà phần lớn
+trường hợp khác vẫn đúng nên bug rất khó thấy. Hai ca kiểm chứng bắt buộc có trong test:
+
+```
+tiết 1-3 (start=1, end=4)  vs  tiết 4-6 (start=4, end=7)
+  → 1 < 7 && 4 < 4  →  false  →  KHÔNG trùng   (liền kề, phải cho đăng ký)
+
+tiết 1-3 (start=1, end=4)  vs  tiết 3-5 (start=3, end=6)
+  → 1 < 6 && 3 < 4  →  true   →  TRÙNG         (chồng tiết 3)
+```
+
+**Điểm chữ và GPA**
+
+Thang điểm chữ theo `score` (thang 10), và bảng quy đổi sang thang 4 để tính GPA:
+
+| Điểm chữ | Điều kiện `score` | Quy đổi thang 4 |
+|---|---|---|
+| A  | ≥ 8.5 | 4.0 |
+| B+ | ≥ 8.0 | 3.5 |
+| B  | ≥ 7.0 | 3.0 |
+| C+ | ≥ 6.5 | 2.5 |
+| C  | ≥ 5.5 | 2.0 |
+| D+ | ≥ 5.0 | 1.5 |
+| D  | ≥ 4.0 | 1.0 |
+| F  | < 4.0 | 0.0 |
+
+```
+GPA = Σ(quy_đổi_4 × credits) / Σ(credits)
+```
+
+Ba quy tắc phải chốt, không để mỗi người hiểu một kiểu:
+
+- Môn có `score` null (chưa có điểm) **không** vào GPA, bỏ khỏi cả tử và mẫu.
+- Môn F **có** vào GPA: tử cộng 0, mẫu vẫn cộng `credits`. Môn đã học và trượt thì phải
+  kéo GPA xuống, nếu loại khỏi mẫu thì trượt lại thành có lợi.
+- Hiển thị GPA làm tròn 2 chữ số thập phân. Không lưu vào DB (mục 4).
 
 ### 7.3 Vì sao không viết naive
 
@@ -342,6 +420,31 @@ API ngoài trong lúc đang giữ lock.
 
 ## 8. Test đồng thời — bằng chứng của đồ án
 
+### 8.1 Hai điều kiện bắt buộc về môi trường chạy
+
+Toàn bộ sức nặng của đồ án nằm ở test này, nên nếu chạy sai môi trường thì kết quả vô giá
+trị — và tệ hơn là nó vẫn xanh, làm nhóm tin là code đúng.
+
+**Không được đánh `@Transactional` lên test.** Nếu có, dữ liệu setup nằm trong transaction
+chưa commit của test, 200 thread chạy ở transaction khác sẽ không thấy nó, và hành vi lock
+không phản ánh thực tế chút nào. Test sẽ xanh hoặc đỏ vì một lý do hoàn toàn khác với lý do
+nhóm nghĩ. Dọn dữ liệu bằng `@BeforeEach`/`@AfterEach` xoá tay, không dùng rollback tự động.
+
+**Phải chạy trên MySQL thật, không phải H2.** H2 xử lý `SELECT ... FOR UPDATE` và `CHECK`
+khác MySQL InnoDB. Chứng minh chống lost update trên H2 là chứng minh về H2, không phải về
+hệ thống sẽ chạy. Dùng Testcontainers, hoặc trỏ thẳng vào MySQL trong `docker-compose.yml`
+qua một profile test riêng. Cả hai cách đều không phát sinh chi phí vì đã có Docker.
+
+Thêm hai điểm nhỏ nhưng dễ vướng:
+
+- Test cần 200 tài khoản sinh viên. Seed chúng trong phần setup của test, **không** nhét vào
+  `V2__seed.sql` — migration không nên chứa 200 user rác.
+- Connection pool phải đủ lớn cho 32 thread, nếu không thread sẽ chờ ở pool thay vì chờ ở
+  lock, và bài đo mất ý nghĩa. Đặt `spring.datasource.hikari.maximum-pool-size` ≥ 32 trong
+  cấu hình test.
+
+### 8.2 Test
+
 ```java
 @Test
 void chi_dung_capacity_sinh_vien_dang_ky_thanh_cong() throws Exception {
@@ -371,13 +474,51 @@ void chi_dung_capacity_sinh_vien_dang_ky_thanh_cong() throws Exception {
 `CountDownLatch` là chi tiết bắt buộc: nếu thả 200 thread ra tự chạy, chúng khởi động
 lệch nhau vài chục milli giây và **không thực sự đồng thời** — test sẽ xanh dù code sai.
 
-Bảng số liệu đưa vào báo cáo:
+### 8.3 Số liệu ĐO THẬT
+
+Đây là kết quả chạy thật trên MySQL 8.0.46 qua Testcontainers, không phải số minh hoạ.
+Bảng này mới là bảng đưa vào báo cáo.
 
 ```
-Lớp sĩ số 40, 200 yêu cầu đồng thời
+Lớp sĩ số 40, 200 yêu cầu đồng thời, pool 32 thread, thả cùng lúc bằng CountDownLatch
 
-Chưa có lock:   200 thành công,  registered_count = 200,  sĩ số thực 200   SAI
-Có lock:         40 thành công,  registered_count =  40,  sĩ số thực  40   ĐÚNG
+                    thành công   registered_count   số dòng registrations   kết luận
+Có lock                    40                 40                      40   ĐÚNG
+Không lock                 11                  5                      11   SAI
+```
+
+Cột "có lock" **giống nhau tuyệt đối ở mọi lần chạy** — đó chính là điều cần chứng minh.
+Cột "không lock" thì dao động theo tải của máy (hai lần chạy liên tiếp cho 10 và 11 lượt
+thành công, counter 5 cả hai lần). Vì vậy test không assert vào con số cụ thể, chỉ assert
+vào bất biến số học luôn đúng.
+
+Cách đọc cột "không lock": hệ thống **tưởng** trong lớp có 5 sinh viên, nhưng thực tế
+có 10 bản ghi đăng ký. Counter đếm thiếu 5 vì nhiều transaction cùng đọc một giá trị cũ
+rồi ghi đè lên nhau — đúng định nghĩa lost update.
+
+Ba điều rút ra từ số liệu thật, cả ba đều nên nói khi bảo vệ:
+
+- **`chk_capacity` không hề báo lỗi** trong lần chạy sai. Ràng buộc đó so `registered_count`
+  với `capacity`, mà `registered_count` lại chính là con số đã bị đếm thiếu. Ràng buộc
+  tầng DB nhìn thấy mọi thứ bình thường trong khi dữ liệu đã sai. Đây là lý do không thể
+  chỉ dựa vào `CHECK` để thay cho lock.
+- **Bản không lock còn sinh deadlock thật** (MySQL error 1213, SQLState 40001). Nó không
+  chỉ cho ra số sai mà còn không ổn định.
+- Con số "không lock" **thấp hơn** trực giác ban đầu (10 chứ không phải 200) vì phần lớn
+  thread chết giữa đường do tranh chấp ghi. Điều này không làm nhẹ vấn đề: 10 bản ghi
+  thật trên một counter báo 5 nghĩa là nếu sĩ số lớp là 5 thì đã có 10 người vào lớp.
+
+Ghi chú kỹ thuật khi viết bản đối chứng: **không** chèn `Thread.sleep` giữa đọc và ghi
+để "làm rõ" race condition. Đã thử và kết quả ngược lại — sleep giữ lock ghi trên dòng
+lớp học phần lâu hơn, khiến gần hết thread chết vì `innodb_lock_wait_timeout` thay vì lọt
+qua được, tức là che mất chính cái bug cần chỉ ra.
+
+Assertion đúng cho bản không lock là hai điều kiện luôn đúng về mặt số học, không phụ
+thuộc tốc độ máy:
+
+```java
+assertThat(actualRows).isGreaterThan(counter);      // counter đếm thiếu
+assertThat(counter).isLessThanOrEqualTo(CAPACITY);  // nên chk_capacity không bắt được
 ```
 
 ---
@@ -435,8 +576,12 @@ Kết bằng hai câu:
 | Muốn xem điểm thì phải làm gì trước? | Chỉ vào kịch bản mục 9 — điểm do admin nhập ở bước 8 |
 | Sinh viên rút môn sau khi có điểm? | Chặn rút khi `score` khác null, và khi cổng đăng ký đã đóng |
 | Xoá môn đang có lớp mở? | Không xoá cứng, chỉ ẩn; hoặc chặn nếu còn lớp tham chiếu |
-| Đóng cổng mà lớp thiếu sĩ số? | Admin xoá lớp, hệ thống xoá đăng ký kèm theo và thông báo |
+| Đóng cổng mà lớp thiếu sĩ số? | Admin xoá lớp; service xoá `registrations` của lớp trước rồi xoá lớp, cùng transaction (mục 4) |
+| Sao không dùng `ON DELETE CASCADE`? | Để việc xoá dữ liệu sinh viên là hành động tường minh trong code, không để DB âm thầm làm (mục 4) |
+| Hạ sĩ số lớp xuống dưới số đã đăng ký? | Chặn ở `ClassSectionService`, nếu không sẽ vi phạm `chk_capacity` và lỗi SQL lọt ra UI (mục 7.2) |
+| Rút môn có bị lost update không? | Có, vì cũng là đọc-rồi-ghi trên `registered_count`. `drop()` lock y như `register()` (mục 7.1) |
 | Nhập sai điểm? | Cho sửa khi kỳ chưa chốt |
+| Môn trượt có tính vào GPA không? | Có, tử cộng 0 và mẫu vẫn cộng tín chỉ. Loại khỏi mẫu thì trượt lại thành có lợi (mục 7.2) |
 | Sao không có bảng GPA? | GPA là dữ liệu dẫn xuất, tính từ `score` và `credits` khi hiển thị |
 | Sao không dùng Spring Boot mới nhất? | Thymeleaf chưa có module tích hợp Spring Framework 7 (mục 3) |
 | Sao không dùng `synchronized`? | Mục 7.4 |
@@ -450,23 +595,30 @@ Kết bằng hai câu:
 ```
 src/main/java/com/ptit/courseregistration/
 ├── CourseRegistrationApplication.java
-├── config/          SecurityConfig, WebConfig
-├── domain/          User, Course, Semester, ClassSection, Registration, Role enum
+├── config/          SecurityConfig, AdminBootstrap
+│                    (không có WebConfig: xem mục 12.1)
+├── domain/          User, Course, Semester, ClassSection, Registration,
+│                    Role enum, LetterGrade enum
 ├── repository/      5 repository, có findByIdForUpdate
-├── service/         AuthService, CourseService, SemesterService,
-│                    ClassSectionService, RegistrationService, GradeService
-├── controller/      AuthController, AdminCourseController, AdminSemesterController,
-│                    AdminSectionController, AdminGradeController,
-│                    StudentRegistrationController, StudentDashboardController
-├── dto/
-└── exception/        GlobalExceptionHandler, ClassFullException,
-                     PrerequisiteNotMetException, ScheduleConflictException,
-                     CreditLimitExceededException
+├── service/         AuthService, AppUserDetails, RegistrationRules,
+│                    RegistrationService, CourseService, SemesterService,
+│                    ClassSectionService, GradeService
+├── controller/      AuthController, HomeController, AdminCourseController,
+│                    AdminSemesterController, AdminSectionController,
+│                    AdminGradeController, StudentRegistrationController,
+│                    StudentDashboardController
+├── dto/             RegisterForm, CourseForm, SemesterForm, ClassSectionForm,
+│                    GradeEntryForm, OpenSectionView, SemesterResult, AcademicSummary
+└── exception/       GlobalExceptionHandler, BusinessException (lớp cha),
+                     NotFoundException, RegistrationClosedException,
+                     AlreadyRegisteredException, PrerequisiteNotMetException,
+                     ScheduleConflictException, CreditLimitExceededException,
+                     ClassFullException, CannotDropException
 
 src/main/resources/
 ├── templates/
 │   ├── layout.html
-│   ├── fragments/   header, nav, alerts, pagination
+│   ├── fragments/   header (gồm cả nav), alerts, pagination
 │   ├── auth/        login, register
 │   ├── admin/       courses, semesters, sections, grades
 │   └── student/     sections, my-courses
@@ -474,19 +626,57 @@ src/main/resources/
 ├── db/migration/    V1__schema.sql, V2__seed.sql
 └── application.yml
 
-src/test/java/.../RegistrationConcurrencyTest.java
+src/test/java/.../RegistrationConcurrencyTest.java   ← 2 test: có lock và không lock
+src/test/java/.../ScheduleConflictTest.java         ← ca biên tiết học ở mục 7.2
+src/test/java/.../GradeServiceTest.java             ← ngưỡng điểm chữ và 3 quy tắc GPA
+src/test/resources/application-test.yml             ← pool ≥ 32; datasource do Testcontainers cấp
+
+docs/DIAGRAMS.md                                    ← ERD, use case, sequence cho báo cáo
 
 docker-compose.yml
+start-dev.cmd                                       ← chạy với JDK 21 (xem mục 12.2)
 pom.xml
 ```
 
 Quy ước:
 
-- Dùng Flyway, **không** dùng `spring.jpa.hibernate.ddl-auto=update`.
+- Dùng Flyway, **không** dùng `spring.jpa.hibernate.ddl-auto=update`. Đang đặt `validate`
+  để Hibernate báo ngay nếu entity lệch schema Flyway.
 - Mật khẩu băm BCrypt.
 - Nghiệp vụ nằm ở service, controller chỉ điều phối.
 - Lỗi nghiệp vụ ném exception riêng, `GlobalExceptionHandler` chuyển thành flash message.
 - Thymeleaf dùng layout + fragment, không lặp HTML.
+- Test đồng thời chạy trên MySQL thật và không có `@Transactional` (mục 8.1).
+- Không dùng Lombok: getter/setter viết tay để sinh viên đọc code không cần biết thêm
+  công cụ sinh mã.
+
+### 12.1 Những chỗ code lệch nhẹ so với đặc tả, và lý do
+
+Ghi lại để người sau không tưởng là làm sai.
+
+| Chỗ lệch | Lý do |
+|---|---|
+| Thêm `BusinessException` làm lớp cha của mọi lỗi nghiệp vụ | `GlobalExceptionHandler` bắt một lớp là đủ, không phải liệt kê từng loại |
+| Thêm `RegistrationClosedException`, `AlreadyRegisteredException` | Để 5 tầng validate có 5 thông báo riêng, đúng tinh thần "exception riêng cho từng loại lỗi" |
+| Tách `RegistrationRules` khỏi `RegistrationService` | 5 hàm validate còn được màn hình "Lớp đang mở" dùng để báo trước lý do bị chặn. Tách ra để chỉ có MỘT bản logic |
+| `AdminBootstrap` tạo admin lúc khởi động thay vì seed bằng Flyway | Hash BCrypt phải do chính encoder của ứng dụng sinh. Quan trọng hơn: nhét hash của một mật khẩu đã biết vào migration là đưa mật khẩu dùng chung vào lịch sử git vĩnh viễn. Mật khẩu sinh ngẫu nhiên và in ra log một lần |
+| `LetterGrade` là enum trong `domain/` | Bảng quy đổi điểm chữ sang thang 4 cần một chỗ duy nhất; enum là chỗ tự nhiên nhất |
+| `getScheduleLabel()` nằm trên `ClassSection` | Template gọi trực tiếp được, và chuỗi "Thứ 2, tiết 1-3" chỉ sinh ra ở một nơi |
+| Chỉ MỘT học kỳ `active` tại một thời điểm | Màn hình "Lớp đang mở" phải biết hiển thị kỳ nào; hai kỳ active cùng lúc thì giới hạn tín chỉ cũng nhập nhằng |
+| Chặn đổi thứ/tiết của lớp đã có sinh viên | Đổi lịch sẽ làm thời khóa biểu của họ trùng nhau mà không ai kiểm tra lại |
+| **Không có `WebConfig`** dù mục 12 từng liệt kê | `WebConfig` chỉ cần khi phải đăng ký interceptor, formatter hay view resolver riêng. Project này không cần thứ nào trong số đó, nên tạo file rỗng chỉ để khớp danh sách là thêm code rác |
+| Fragment `nav` gộp vào `header.html` | Navbar Bootstrap là một khối liền, tách hai file chỉ làm khó đọc |
+
+### 12.2 Môi trường chạy trên máy hiện tại
+
+- **Java 21 là bắt buộc.** Nếu `JAVA_HOME` đang trỏ JDK cũ, `mvn` báo
+  *release version 21 not supported*. Dùng `start-dev.cmd` để chạy tạm, nhưng cách đúng
+  là sửa `JAVA_HOME` hệ thống.
+- **MySQL chạy ở cổng 3307**, không phải 3306, để không tranh cổng với MySQL của project
+  khác trên cùng máy. Cả `docker-compose.yml` và `application.yml` đọc biến `DB_PORT`
+  nên đổi một chỗ là đổi cả hai.
+- Bootstrap 5 đóng gói trong jar qua webjar, không lấy từ CDN: lúc bảo vệ không phụ thuộc
+  mạng. Đổi phiên bản phải sửa cả `pom.xml` và `templates/layout.html`.
 
 ---
 
@@ -504,7 +694,7 @@ Người 2   4 màn hình admin (môn học, học kỳ, lớp học phần, nh�
 
 Người 3   2 màn hình sinh viên, layout Thymeleaf toàn bộ, Bootstrap
           Lọc và phân trang danh sách lớp
-          ERD, sơ đồ use case, báo cáo, slide
+          ERD, sơ đồ use case (đã có bản nguồn ở docs/DIAGRAMS.md), báo cáo, slide
 ```
 
 Chốt `ClassSection` và `Registration` trong tuần đầu rồi mới code song song.
@@ -526,6 +716,13 @@ Danh sách này để chống phình phạm vi. Nếu muốn thêm, phải là q
 - Không có REST API + SPA — dùng Thymeleaf render server-side
 - Không có WebSocket
 - Không quá 5 bảng, không quá 6 chức năng
+- **Không tích hợp AI/LLM.** Đã cân nhắc và loại (8/2026): môn học không yêu cầu, và thêm
+  vào thì làm loãng đúng phần trọng tâm là mục 7. Ba phương án từng xét: tự động xếp thời
+  khoá biểu bằng backtracking (khả thi nhất, 0 chi phí, 0 bên thứ ba, nhưng tốn 1–1,5 tuần
+  và phải refactor vào lõi đã chạy đúng), tìm kiếm ngôn ngữ tự nhiên qua LLM (cần API key,
+  phụ thuộc mạng lúc demo, dữ liệu ra ngoài), chatbot RAG tư vấn quy chế (cần bảng thứ 6 để
+  lưu hội thoại, và câu trả lời không truy được về màn hình nhập nào nên phá mục 6). Nếu về
+  sau có người muốn mở lại, đọc đoạn này trước.
 
 Làm sau nếu còn thời gian, theo thứ tự ưu tiên:
 

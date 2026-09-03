@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<body>
+
+<!--/*
+  Thanh phan trang dung chung.
+
+  Cach goi:
+      <div th:replace="~{fragments/pagination :: bar(
+              ${rows}, '/student/sections', ${selectedCourseId}, ${onlyAvailable})}"></div>
+
+  Tham so:
+      page          doi tuong Page cua Spring Data
+      path          duong dan cua trang hien tai
+      courseId      gia tri bo loc, giu lai khi doi trang (null thi bi bo qua)
+      onlyAvailable gia tri bo loc, giu lai khi doi trang
+
+  Cu phap __${path}__ la tien xu ly cua Thymeleaf: gia tri cua path duoc chen vao
+  bieu thuc TRUOC khi bieu thuc duoc phan tich, nen @{...} nhan duoc mot duong dan
+  co dinh nhu binh thuong. Nho vay fragment nay khong bi gan cung vao mot man hinh.
+
+  Giu lai bo loc khi doi trang la bat buoc: neu khong, bam sang trang 2 se hien lai
+  toan bo danh sach va nguoi dung tuong bo loc bi mat.
+*/-->
+<nav th:fragment="bar(page, path, courseId, onlyAvailable)"
+     th:if="${page != null and page.totalPages > 1}"
+     class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3 border-top"
+     aria-label="Phân trang danh sách lớp">
+
+    <div class="small text-body-secondary">
+        Trang <span th:text="${page.number + 1}">1</span>
+        trên <span th:text="${page.totalPages}">1</span>
+        &middot; tổng <span th:text="${page.totalElements}">0</span> lớp
+    </div>
+
+    <ul class="pagination pagination-sm mb-0"
+        th:with="start=${page.number - 2 < 0 ? 0 : page.number - 2},
+                 end=${page.number + 2 > page.totalPages - 1 ? page.totalPages - 1 : page.number + 2}">
+
+        <!-- Trang truoc -->
+        <li class="page-item" th:classappend="${page.first} ? 'disabled'">
+            <a class="page-link"
+               th:href="@{__${path}__(page=${page.number - 1}, courseId=${courseId}, onlyAvailable=${onlyAvailable})}"
+               th:attr="aria-disabled=${page.first} ? 'true' : 'false'">Trước</a>
+        </li>
+
+        <!-- Nhay ve trang dau khi cua so khong bat dau tu trang 1 -->
+        <li class="page-item" th:if="${start > 0}">
+            <a class="page-link"
+               th:href="@{__${path}__(page=0, courseId=${courseId}, onlyAvailable=${onlyAvailable})}">1</a>
+        </li>
+        <li class="page-item disabled" th:if="${start > 1}">
+            <span class="page-link">&hellip;</span>
+        </li>
+
+        <!-- Cua so cac trang quanh trang hien tai -->
+        <li class="page-item" th:each="i : ${#numbers.sequence(start, end)}"
+            th:classappend="${i == page.number} ? 'active'">
+            <a class="page-link"
+               th:href="@{__${path}__(page=${i}, courseId=${courseId}, onlyAvailable=${onlyAvailable})}"
+               th:text="${i + 1}"
+               th:attr="aria-current=${i == page.number} ? 'page' : null">1</a>
+        </li>
+
+        <!-- Nhay den trang cuoi -->
+        <li class="page-item disabled" th:if="${end < page.totalPages - 2}">
+            <span class="page-link">&hellip;</span>
+        </li>
+        <li class="page-item" th:if="${end < page.totalPages - 1}">
+            <a class="page-link"
+               th:href="@{__${path}__(page=${page.totalPages - 1}, courseId=${courseId}, onlyAvailable=${onlyAvailable})}"
+               th:text="${page.totalPages}">10</a>
+        </li>
+
+        <!-- Trang sau -->
+        <li class="page-item" th:classappend="${page.last} ? 'disabled'">
+            <a class="page-link"
+               th:href="@{__${path}__(page=${page.number + 1}, courseId=${courseId}, onlyAvailable=${onlyAvailable})}"
+               th:attr="aria-disabled=${page.last} ? 'true' : 'false'">Sau</a>
+        </li>
+    </ul>
+</nav>
+
+</body>
+</html>

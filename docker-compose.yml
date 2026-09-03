@@ -1,0 +1,42 @@
+# MySQL cho moi truong phat trien va cho test dong thoi (DOAN.md muc 8.1).
+#
+# CANH BAO: mat khau duoi day la mat khau phat trien cuc bo, cong 3306 mo ra localhost.
+# Khong dung cau hinh nay cho bat ky moi truong nao ngoai may ca nhan.
+#
+#   docker compose up -d      bat
+#   docker compose down       tat (giu du lieu)
+#   docker compose down -v    tat va XOA SACH du lieu
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ptit-course-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: course_registration
+      MYSQL_USER: course
+      MYSQL_PASSWORD: course
+    ports:
+      # Cong tren may that la 3307, khong phai 3306, de khong tranh cong voi MySQL
+      # cua project khac dang chay tren cung may. Trong container van la 3306.
+      # Doi cong: dat bien moi truong DB_PORT roi chay lai -- application.yml doc
+      # cung bien nay nen chi can sua mot cho.
+      - "${DB_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command:
+      # Giu nguyen isolation level mac dinh REPEATABLE READ. Day la chu y:
+      # DOAN.md muc 7.4 lap luan rang REPEATABLE READ khong ngan duoc lost update,
+      # nen moi truong demo phai dung mac dinh de lap luan do kiem chung duoc.
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  mysql-data:

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi"
+      th:replace="~{layout :: page('Không tìm thấy', ~{::content})}">
+<body>
+
+<div th:fragment="content" class="text-center py-5">
+    <p class="display-6 text-body-secondary mb-2">404</p>
+    <h1 class="h4 mb-3">Không tìm thấy dữ liệu</h1>
+    <p class="text-body-secondary" th:text="${message} ?: 'Đường dẫn không tồn tại.'">
+        Đường dẫn không tồn tại.
+    </p>
+    <a th:href="@{/}" class="btn btn-primary mt-2">Về trang chủ</a>
+</div>
+
+</body>
+</html>

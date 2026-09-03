@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi"
+      th:replace="~{layout :: page('Đăng nhập', ~{::content})}">
+<body>
+
+<div th:fragment="content" class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h4 mb-4">Đăng nhập</h1>
+
+                <!--/* Thông báo lỗi đăng nhập cố tình chung chung: không nói rõ là sai
+                       tên đăng nhập hay sai mật khẩu. Nếu nói rõ, kẻ tấn công dò được
+                       tài khoản nào tồn tại. */-->
+                <div th:if="${param.error}" class="alert alert-danger" role="alert">
+                    Tên đăng nhập hoặc mật khẩu không đúng.
+                </div>
+                <div th:if="${param.logout}" class="alert alert-info" role="alert">
+                    Bạn đã đăng xuất.
+                </div>
+
+                <form th:action="@{/login}" method="post" novalidate>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Tên đăng nhập</label>
+                        <input type="text" id="username" name="username"
+                               class="form-control" required autofocus
+                               autocomplete="username">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mật khẩu</label>
+                        <input type="password" id="password" name="password"
+                               class="form-control" required
+                               autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
+                </form>
+
+                <p class="mt-3 mb-0 text-body-secondary small">
+                    Chưa có tài khoản?
+                    <a th:href="@{/register}">Đăng ký tài khoản sinh viên</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

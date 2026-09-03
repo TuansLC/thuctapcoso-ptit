@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!--/*
+  Khung chung cho mọi trang. Trang con gọi:
+
+      <html th:replace="~{layout :: page('Tiêu đề', ~{::content})}">
+      <body>
+        <div th:fragment="content"> ... </div>
+      </body>
+      </html>
+
+  Dùng fragment gốc của Thymeleaf, không cần thêm thư viện layout-dialect.
+  Quy ước DOAN.md mục 12: layout + fragment, không lặp HTML.
+*/-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="vi"
+      th:fragment="page(pageTitle, content)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="|${pageTitle} - Đăng ký học phần PTIT|">Đăng ký học phần PTIT</title>
+
+    <!--/* Bootstrap đóng gói trong jar, không lấy từ CDN: lúc bảo vệ không phụ thuộc mạng.
+           Đổi phiên bản thì sửa cả property bootstrap.version trong pom.xml. */-->
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.7/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="bg-body-tertiary d-flex flex-column min-vh-100">
+
+<header th:replace="~{fragments/header :: navbar}"></header>
+
+<main class="container py-4 flex-grow-1">
+    <div th:replace="~{fragments/alerts :: messages}"></div>
+    <th:block th:replace="${content}"></th:block>
+</main>
+
+<footer class="border-top py-3 mt-auto bg-white">
+    <div class="container text-body-secondary small">
+        Thực tập cơ sở &mdash; Học viện Công nghệ Bưu chính Viễn thông
+    </div>
+</footer>
+
+<script th:src="@{/webjars/bootstrap/5.3.7/js/bootstrap.bundle.min.js}"></script>
+</body>
+</html>

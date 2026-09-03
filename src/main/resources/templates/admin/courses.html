@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi"
+      th:replace="~{layout :: page('Quản lý môn học', ~{::content})}">
+<body>
+
+<div th:fragment="content">
+    <h1 class="h4 mb-4">Quản lý môn học</h1>
+
+    <div class="row g-4">
+        <!-- ============ Form nhập ============ -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h6 mb-3" th:text="${form.new} ? 'Thêm môn học' : 'Sửa môn học'">
+                        Thêm môn học
+                    </h2>
+
+                    <form th:action="@{/admin/courses}" th:object="${form}" method="post" novalidate>
+                        <input type="hidden" th:field="*{id}">
+
+                        <!--/* Lỗi cấp toàn form phải nằm TRONG thẻ form có th:object,
+                               nếu không Thymeleaf không có ngữ cảnh binding. */-->
+                        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger" role="alert">
+                            <p class="mb-0" th:each="e : ${#fields.globalErrors()}" th:text="${e}">Lỗi</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="code" class="form-label">Mã môn học</label>
+                            <input type="text" id="code" th:field="*{code}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('code')} ? 'is-invalid'"
+                                   placeholder="INT1339">
+                            <div class="invalid-feedback" th:errors="*{code}">Lỗi</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Tên môn học</label>
+                            <input type="text" id="name" th:field="*{name}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{name}">Lỗi</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="credits" class="form-label">Số tín chỉ</label>
+                            <input type="number" id="credits" th:field="*{credits}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('credits')} ? 'is-invalid'"
+                                   min="1" max="10">
+                            <div class="invalid-feedback" th:errors="*{credits}">Lỗi</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="prerequisiteId" class="form-label">Môn tiên quyết</label>
+                            <select id="prerequisiteId" th:field="*{prerequisiteId}" class="form-select">
+                                <option value="">— Không có —</option>
+                                <option th:each="c : ${prerequisiteOptions}"
+                                        th:value="${c.id}"
+                                        th:text="|${c.code} - ${c.name}|">Môn</option>
+                            </select>
+                            <div class="form-text">Mỗi môn tối đa một môn tiên quyết.</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100"
+                                th:text="${form.new} ? 'Thêm môn học' : 'Lưu thay đổi'">Thêm</button>
+                        <a th:if="${not form.new}" th:href="@{/admin/courses}"
+                           class="btn btn-link w-100 mt-1">Hủy, thêm môn mới</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ Danh sách ============ -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <caption class="visually-hidden">Danh sách môn học</caption>
+                        <thead class="table-light">
+                        <tr>
+                            <th scope="col">Mã</th>
+                            <th scope="col">Tên môn</th>
+                            <th scope="col" class="text-center">TC</th>
+                            <th scope="col">Tiên quyết</th>
+                            <th scope="col" class="text-end">Thao tác</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="c : ${courses}">
+                            <td><code th:text="${c.code}">INT1339</code></td>
+                            <td th:text="${c.name}">Lập trình Java</td>
+                            <td class="text-center" th:text="${c.credits}">3</td>
+                            <td>
+                                <span th:if="${c.prerequisite != null}"
+                                      th:text="${c.prerequisite.name}">Môn trước</span>
+                                <span th:if="${c.prerequisite == null}"
+                                      class="text-body-secondary">—</span>
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <a th:href="@{/admin/courses/{id}/edit(id=${c.id})}"
+                                   class="btn btn-sm btn-outline-secondary">Sửa</a>
+                                <form th:action="@{/admin/courses/{id}/delete(id=${c.id})}"
+                                      method="post" class="d-inline"
+                                      onsubmit="return confirm('Xóa môn học này?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(courses)}">
+                            <td colspan="5" class="text-center text-body-secondary py-4">
+                                Chưa có môn học nào. Thêm ở form bên trái.
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

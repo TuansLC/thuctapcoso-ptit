@@ -1,0 +1,29 @@
+# Cau hinh cho test dong thoi - DOAN.md muc 8.1
+#
+# Datasource KHONG khai o day: Testcontainers cap URL dong luc chay
+# (xem @ServiceConnection trong lop test). Diem quan trong la khong co H2 o dau ca.
+
+spring:
+  datasource:
+    hikari:
+      # >= so thread cua pool trong test (32). Neu pool nho hon, thread se cho o
+      # hang doi connection thay vi cho o row lock, va bai do mat y nghia.
+      maximum-pool-size: 40
+      pool-name: test-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+logging:
+  level:
+    org.hibernate.SQL: warn
+    org.testcontainers: info

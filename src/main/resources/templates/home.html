@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="vi"
+      th:replace="~{layout :: page('Trang chủ', ~{::content})}">
+<body>
+
+<div th:fragment="content">
+
+    <!--/* Khách chưa đăng nhập */-->
+    <div sec:authorize="isAnonymous()" class="row justify-content-center">
+        <div class="col-md-8 text-center py-5">
+            <h1 class="h3 mb-3">Website đăng ký học phần trực tuyến</h1>
+            <p class="text-body-secondary mb-4">
+                Đăng nhập để đăng ký lớp học phần, hoặc tạo tài khoản sinh viên mới.
+            </p>
+            <a th:href="@{/login}" class="btn btn-primary me-2">Đăng nhập</a>
+            <a th:href="@{/register}" class="btn btn-outline-primary">Đăng ký tài khoản</a>
+        </div>
+    </div>
+
+    <!--/* Đã đăng nhập thì HomeController đã điều hướng theo vai, nên phần này
+           chỉ là đường lùi nếu ai đó vào trực tiếp. */-->
+    <div sec:authorize="isAuthenticated()" class="text-center py-5">
+        <h1 class="h4 mb-3">
+            Xin chào, <span sec:authentication="principal.fullName">bạn</span>
+        </h1>
+        <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/courses}"
+           class="btn btn-primary">Vào trang quản lý</a>
+        <a sec:authorize="hasRole('STUDENT')" th:href="@{/student/sections}"
+           class="btn btn-primary">Xem lớp đang mở</a>
+    </div>
+
+</div>
+
+</body>
+</html>

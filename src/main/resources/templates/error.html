@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<!--/*
+  Trang lỗi mặc định của Spring Boot (whitelabel đã tắt trong application.yml).
+  Cố tình KHÔNG hiện stack trace hay thông báo gốc từ hệ thống: những thứ đó
+  tiết lộ cấu trúc bên trong. Chi tiết lỗi nằm ở log của server.
+*/-->
+<html xmlns:th="http://www.thymeleaf.org" lang="vi"
+      th:replace="~{layout :: page('Đã có lỗi', ~{::content})}">
+<body>
+
+<div th:fragment="content" class="text-center py-5">
+    <p class="display-6 text-body-secondary mb-2" th:text="${status} ?: 'Lỗi'">Lỗi</p>
+    <h1 class="h4 mb-3">Đã có lỗi xảy ra</h1>
+    <p class="text-body-secondary">
+        Vui lòng thử lại. Nếu lỗi còn tiếp diễn, xem log của server để biết chi tiết.
+    </p>
+    <a th:href="@{/}" class="btn btn-primary mt-2">Về trang chủ</a>
+</div>
+
+</body>
+</html>

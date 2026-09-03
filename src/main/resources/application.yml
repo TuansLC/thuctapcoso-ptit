@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: course-registration
+
+  datasource:
+    # Cong 3307 khop voi docker-compose.yml. Khong dung 3306 de tranh tranh cong
+    # voi MySQL cua project khac tren cung may. Dat bien DB_PORT de doi ca hai noi.
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/${DB_NAME:course_registration}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Ho_Chi_Minh
+    username: ${DB_USER:course}
+    password: ${DB_PASSWORD:course}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: course-pool
+
+  jpa:
+    # Flyway la nguon su that duy nhat cho schema (DOAN.md muc 12).
+    # 'validate' chi kiem tra entity co khop schema Flyway hay khong, khong tu sua gi.
+    # TUYET DOI khong doi thanh 'update'.
+    hibernate:
+      ddl-auto: validate
+    # false la mac dinh dung: khong giu session mo trong luc render view.
+    # Doi lai phai fetch join tuong minh o repository khi template can quan he lazy.
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  thymeleaf:
+    cache: false
+
+logging:
+  level:
+    # Bat log SQL o moi truong dev: khi demo co the chi thang vao dong
+    # "select ... for update" trong log lam bang chung locking read (DOAN.md muc 7.4).
+    org.hibernate.SQL: debug
+    org.springframework.security: info
+
+server:
+  port: 8080
+  error:
+    whitelabel:
+      enabled: false
+
+app:
+  admin:
+    username: admin
+    full-name: Quan tri he thong
+    # De TRONG co chu y. Bo trong thi AdminBootstrap sinh mat khau ngau nhien va in
+    # ra log dung mot lan luc tao tai khoan -- khong co mat khau mac dinh nao nam
+    # trong git. Muon dat co dinh cho may ca nhan thi tao application-local.yml
+    # (da co trong .gitignore) roi chay voi --spring.profiles.active=local.
+    password: ""

@@ -22,3 +22,8 @@ Thumbs.db
 application-local.yml
 application-local.properties
 .env
+
+# Log chay cuc bo, khong commit
+run.log
+app.log
+app-run.log

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi"
+      th:replace="~{layout :: page('Học phần của tôi', ~{::content})}">
+<body>
+
+<div th:fragment="content">
+    <h1 class="h4 mb-1">Học phần của tôi</h1>
+    <p class="text-body-secondary small mb-4">
+        Điểm chữ và GPA không lưu trong cơ sở dữ liệu, hệ thống tính lại từ điểm số và
+        số tín chỉ mỗi lần hiển thị. Môn chưa có điểm không tính vào GPA; môn F tính vào
+        GPA với 0 điểm.
+    </p>
+
+    <!-- ============ Tổng hợp toàn khóa ============ -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="small text-body-secondary text-uppercase">GPA tích lũy</div>
+                    <div class="fs-3 fw-semibold"
+                         th:text="${overall.hasGpa()} ? ${overall.gpa()} : '—'">—</div>
+                    <div class="small text-body-secondary">thang 4</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="small text-body-secondary text-uppercase">Tín chỉ đã đăng ký</div>
+                    <div class="fs-3 fw-semibold" th:text="${overall.registeredCredits()}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="small text-body-secondary text-uppercase">Tín chỉ đã có điểm</div>
+                    <div class="fs-3 fw-semibold" th:text="${overall.gradedCredits()}">0</div>
+                    <div class="small text-body-secondary">mẫu số của GPA</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="small text-body-secondary text-uppercase">Tín chỉ đã đạt</div>
+                    <div class="fs-3 fw-semibold" th:text="${overall.passedCredits()}">0</div>
+                    <div class="small text-body-secondary">điểm từ 4.0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ Chưa đăng ký gì ============ -->
+    <div th:if="${#lists.isEmpty(results)}" class="alert alert-info" role="alert">
+        Bạn chưa đăng ký học phần nào.
+        <a th:href="@{/student/sections}" class="alert-link">Xem lớp đang mở</a>.
+    </div>
+
+    <!-- ============ Từng học kỳ ============ -->
+    <div th:each="r : ${results}" class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <strong th:text="${r.semester().name}">Học kỳ 1</strong>
+            <div class="small text-body-secondary">
+                <span th:text="|${r.summary().registeredCredits()} tín chỉ|">0 tín chỉ</span>
+                ·
+                <span th:if="${r.summary().hasGpa()}"
+                      th:text="|GPA kỳ ${r.summary().gpa()}|">GPA kỳ 0.00</span>
+                <span th:unless="${r.summary().hasGpa()}">chưa có điểm</span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <caption class="visually-hidden">Học phần trong kỳ</caption>
+                <thead class="table-light">
+                <tr>
+                    <th scope="col">Mã lớp</th>
+                    <th scope="col">Môn học</th>
+                    <th scope="col" class="text-center">TC</th>
+                    <th scope="col">Lịch</th>
+                    <th scope="col">Phòng</th>
+                    <th scope="col" class="text-center">Điểm</th>
+                    <th scope="col" class="text-center">Điểm chữ</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="reg : ${r.registrations()}" th:with="s=${reg.section}">
+                    <td><code th:text="${s.code}">JAVA-01</code></td>
+                    <td th:text="${s.course.name}">Lập trình Java</td>
+                    <td class="text-center" th:text="${s.course.credits}">3</td>
+                    <td class="text-nowrap" th:text="${s.scheduleLabel}">Thứ 2, tiết 1-3</td>
+                    <td th:text="${s.room} ?: '—'">A101</td>
+                    <td class="text-center"
+                        th:text="${reg.score != null} ? ${reg.score} : '—'">—</td>
+                    <td class="text-center" th:with="g=${gradeService.letterOf(reg.score)}">
+                        <span th:if="${g != null}" class="badge"
+                              th:classappend="${g.badgeClass}" th:text="${g.label}">A</span>
+                        <span th:if="${g == null}" class="text-body-secondary">chưa có</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

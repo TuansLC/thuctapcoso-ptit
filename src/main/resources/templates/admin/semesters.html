@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi"
+      th:replace="~{layout :: page('Quản lý học kỳ', ~{::content})}">
+<body>
+
+<div th:fragment="content">
+    <h1 class="h4 mb-1">Quản lý học kỳ</h1>
+    <p class="text-body-secondary small mb-4">
+        Chỉ một học kỳ được mở tại một thời điểm. Mở một kỳ sẽ tự động đóng các kỳ còn lại.
+        Kỳ đã chốt thì không sửa được điểm.
+    </p>
+
+    <div class="row g-4">
+        <!-- ============ Form nhập ============ -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h6 mb-3" th:text="${form.new} ? 'Thêm học kỳ' : 'Sửa học kỳ'">
+                        Thêm học kỳ
+                    </h2>
+
+                    <form th:action="@{/admin/semesters}" th:object="${form}" method="post" novalidate>
+                        <input type="hidden" th:field="*{id}">
+
+                        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger" role="alert">
+                            <p class="mb-0" th:each="e : ${#fields.globalErrors()}" th:text="${e}">Lỗi</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Tên học kỳ</label>
+                            <input type="text" id="name" th:field="*{name}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'"
+                                   placeholder="Học kỳ 1 - 2026/2027">
+                            <div class="invalid-feedback" th:errors="*{name}">Lỗi</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="regOpenAt" class="form-label">Mở cổng đăng ký</label>
+                            <input type="datetime-local" id="regOpenAt" th:field="*{regOpenAt}"
+                                   class="form-control"
+                                   th:classappend="${#fields.hasErrors('regOpenAt')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{regOpenAt}">Lỗi</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="regCloseAt" class="form-label">Đóng cổng đăng ký</label>
+                            <input type="datetime-local" id="regCloseAt" th:field="*{regCloseAt}"
+                                   class="form-control"
+                                   th:classappend="${#fields.hasErrors('regCloseAt')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{regCloseAt}">Lỗi</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="maxCredits" class="form-label">Giới hạn tín chỉ</label>
+                            <input type="number" id="maxCredits" th:field="*{maxCredits}"
+                                   class="form-control"
+                                   th:classappend="${#fields.hasErrors('maxCredits')} ? 'is-invalid'"
+                                   min="1" max="40">
+                            <div class="invalid-feedback" th:errors="*{maxCredits}">Lỗi</div>
+                            <div class="form-text">Tổng tín chỉ tối đa một sinh viên đăng ký trong kỳ.</div>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input type="checkbox" id="active" th:field="*{active}" class="form-check-input">
+                            <label for="active" class="form-check-label">Mở kỳ này (đóng các kỳ khác)</label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100"
+                                th:text="${form.new} ? 'Thêm học kỳ' : 'Lưu thay đổi'">Thêm</button>
+                        <a th:if="${not form.new}" th:href="@{/admin/semesters}"
+                           class="btn btn-link w-100 mt-1">Hủy, thêm kỳ mới</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ Danh sách ============ -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <caption class="visually-hidden">Danh sách học kỳ</caption>
+                        <thead class="table-light">
+                        <tr>
+                            <th scope="col">Học kỳ</th>
+                            <th scope="col">Cổng đăng ký</th>
+                            <th scope="col" class="text-center">Giới hạn TC</th>
+                            <th scope="col">Trạng thái</th>
+                            <th scope="col" class="text-end">Thao tác</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="s : ${semesters}">
+                            <td th:text="${s.name}">Học kỳ 1</td>
+                            <td class="small">
+                                <div th:text="${#temporals.format(s.regOpenAt, 'dd/MM/yyyy HH:mm')}">mở</div>
+                                <div class="text-body-secondary"
+                                     th:text="|đến ${#temporals.format(s.regCloseAt, 'dd/MM/yyyy HH:mm')}|">đến</div>
+                            </td>
+                            <td class="text-center" th:text="${s.maxCredits}">24</td>
+                            <td>
+                                <!--/* Luôn kèm chữ, không dùng riêng màu để truyền đạt trạng thái. */-->
+                                <span th:if="${s.active and s.isRegistrationOpen(now)}"
+                                      class="badge text-bg-success">Đang mở đăng ký</span>
+                                <span th:if="${s.active and not s.isRegistrationOpen(now)}"
+                                      class="badge text-bg-warning">Mở nhưng ngoài khung giờ</span>
+                                <span th:unless="${s.active}"
+                                      class="badge text-bg-secondary">Đã chốt</span>
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <a th:href="@{/admin/semesters/{id}/edit(id=${s.id})}"
+                                   class="btn btn-sm btn-outline-secondary">Sửa</a>
+
+                                <form th:unless="${s.active}"
+                                      th:action="@{/admin/semesters/{id}/activate(id=${s.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">Mở</button>
+                                </form>
+                                <form th:if="${s.active}"
+                                      th:action="@{/admin/semesters/{id}/deactivate(id=${s.id})}"
+                                      method="post" class="d-inline"
+                                      onsubmit="return confirm('Chốt học kỳ này? Sau đó không sửa được điểm.');">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">Chốt</button>
+                                </form>
+
+                                <form th:action="@{/admin/semesters/{id}/delete(id=${s.id})}"
+                                      method="post" class="d-inline"
+                                      onsubmit="return confirm('Xóa học kỳ này?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(semesters)}">
+                            <td colspan="5" class="text-center text-body-secondary py-4">
+                                Chưa có học kỳ nào.
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

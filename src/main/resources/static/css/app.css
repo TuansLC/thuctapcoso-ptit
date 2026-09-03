@@ -1,0 +1,25 @@
+/*
+ * CSS riêng của ứng dụng. Chỉ ghi những gì Bootstrap không có sẵn.
+ * Bootstrap nạp trước file này trong layout.html nên các quy tắc ở đây ghi đè được.
+ */
+
+/* Bảng danh sách lớp học phần sẽ dài, cho phần đầu bảng dính lại khi cuộn. */
+.table-sticky thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* Ô tiết học trong lưới thời khóa biểu: canh giữa cho dễ đọc. */
+.period-cell {
+    text-align: center;
+    white-space: nowrap;
+}
+
+/*
+ * Không dùng riêng màu để truyền đạt thông tin trạng thái lớp (đầy / còn chỗ),
+ * vì người mù màu sẽ không phân biệt được. Luôn kèm chữ hoặc biểu tượng.
+ */
+.seat-full {
+    font-weight: 600;
+}
